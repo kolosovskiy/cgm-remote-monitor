@@ -2,7 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../db.js';
 import { assignLead, createLead, moveLead } from '../services/leads.js';
-import { notFound } from '../lib/errors.js';
+import { forbidden, notFound } from '../lib/errors.js';
+import { can } from '../lib/permissions.js';
 
 const leadInclude = {
   contact: { include: { identities: true } },
@@ -69,7 +70,7 @@ export async function leadRoutes(app: FastifyInstance) {
       sourceDetail: z.string().optional(),
       customFields: z.record(z.string(), z.unknown()).optional(),
     }).parse(req.body);
-    const lead = await createLead({ ...body, customFields: body.customFields as object | undefined, source: 'MANUAL', userId: req.user.id, ownerId: body.ownerId === undefined ? req.user.id : body.ownerId });
+    const lead = await createLead({ ...body, customFields: body.customFields as object | undefined, source: 'MANUAL', userId: req.user.id, ownerId: body.ownerId === undefined || !can(req.user.role, 'leads.reassign') ? req.user.id : body.ownerId });
     return prisma.lead.findUnique({ where: { id: lead.id }, include: leadInclude });
   });
 
@@ -84,6 +85,10 @@ export async function leadRoutes(app: FastifyInstance) {
       ownerId: z.string().nullable().optional(),
     }).parse(req.body);
     const { stageId, ownerId, customFields, ...rest } = body;
+    const current = await prisma.lead.findUnique({ where: { id }, select: { ownerId: true } });
+    if (!current) throw notFound('Лид не найден');
+    if (!can(req.user.role, 'leads.edit_any') && current.ownerId && current.ownerId !== req.user.id) throw forbidden('Можно редактировать только свои лиды');
+    if (ownerId !== undefined && !can(req.user.role, 'leads.reassign') && !(current.ownerId === null && ownerId === req.user.id)) throw forbidden('Нет права переназначать лиды');
     await prisma.lead.update({ where: { id }, data: { ...rest, customFields: customFields as object | undefined } });
     if (stageId) await moveLead(id, stageId, req.user.id);
     if (ownerId !== undefined) await assignLead(id, ownerId);
@@ -96,7 +101,7 @@ export async function leadRoutes(app: FastifyInstance) {
     return prisma.note.create({ data: { text, leadId: id, authorId: req.user.id }, include: { author: { select: { id: true, name: true } } } });
   });
 
-  app.delete('/api/leads/:id', { preHandler: app.requireAdmin }, async (req) => {
+  app.delete('/api/leads/:id', { preHandler: app.requirePerm('leads.delete') }, async (req) => {
     const { id } = req.params as { id: string };
     await prisma.conversation.updateMany({ where: { leadId: id }, data: { leadId: null } });
     await prisma.call.updateMany({ where: { leadId: id }, data: { leadId: null } });

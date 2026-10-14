@@ -42,7 +42,7 @@ export async function resolveContact(opts: { identities: Identity[]; name?: stri
         skipDuplicates: true,
       });
     }
-    if (opts.name && (contact.name === 'Без имени' || !contact.name)) {
+    if (opts.name && (contact.name === 'Без імені' || !contact.name)) {
       await prisma.contact.update({ where: { id: contact.id }, data: { name: opts.name } });
     }
     return prisma.contact.findUniqueOrThrow({ where: { id: contact.id }, include: { identities: true } });
@@ -50,7 +50,7 @@ export async function resolveContact(opts: { identities: Identity[]; name?: stri
 
   return prisma.contact.create({
     data: {
-      name: opts.name?.trim() || 'Без имени',
+      name: opts.name?.trim() || 'Без імені',
       companyName: opts.companyName,
       identities: { create: ids.map((i) => ({ type: i.type, value: i.value, label: i.label })) },
     },

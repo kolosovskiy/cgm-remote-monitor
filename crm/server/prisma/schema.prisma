@@ -9,7 +9,9 @@ datasource db {
 
 enum UserRole {
   ADMIN
+  DEVELOPER
   MANAGER
+  OPERATOR
 }
 
 enum Channel {
@@ -80,6 +82,8 @@ model User {
   passwordHash String
   name         String
   role         UserRole @default(MANAGER)
+  /// Язык интерфейса: uk, sk, ru
+  locale       String   @default("uk")
   /// Внутренний номер в Binotel, чтобы привязывать звонки к сотруднику
   binotelInternal String?
   isActive     Boolean  @default(true)

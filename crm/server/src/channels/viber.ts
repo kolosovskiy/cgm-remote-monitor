@@ -51,7 +51,7 @@ export const viberChannel: ChannelAdapter = {
       }
       return { status: 0 };
     });
-    app.post('/webhooks/viber/setup', { preHandler: app.requireAdmin }, async () => {
+    app.post('/webhooks/viber/setup', { preHandler: app.requirePerm('integrations.manage') }, async () => {
       const res = await fetch('https://chatapi.viber.com/pa/set_webhook', {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'X-Viber-Auth-Token': config.viber.authToken },

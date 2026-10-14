@@ -3,9 +3,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { api, type Contact } from '../api';
 import { ErrorText, Field, Modal, useDebounce } from '../components/ui';
-import { fmtPhone, IDENTITY_LABELS } from '../i18n';
+import { fmtPhone, label, useT } from '../i18n';
 
 export default function ContactsPage() {
+  const { t } = useT();
   const nav = useNavigate();
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
@@ -22,28 +23,28 @@ export default function ContactsPage() {
   });
   return (
     <>
-      <div className="page-head"><h1>Контакты</h1><input style={{ width: 260 }} placeholder="Поиск…" value={search} onChange={(e) => setSearch(e.target.value)} /><span className="muted small">{list.data?.total ?? ''}</span><span className="grow" /><button className="primary" onClick={() => setCreating(true)}>+ Контакт</button></div>
+      <div className="page-head"><h1>{t('contacts.title')}</h1><input style={{ width: 260 }} placeholder={t('common.search')} value={search} onChange={(e) => setSearch(e.target.value)} /><span className="muted small">{list.data?.total ?? ''}</span><span className="grow" /><button className="primary" onClick={() => setCreating(true)}>{t('contacts.new')}</button></div>
       <table>
-        <thead><tr><th>Имя</th><th>Компания</th><th>Контакты</th><th>Лидов</th></tr></thead>
+        <thead><tr><th>{t('common.name')}</th><th>{t('common.company')}</th><th>{t('contacts.colContacts')}</th><th>{t('contacts.colLeads')}</th></tr></thead>
         <tbody>
           {list.data?.items.map((c) => (
             <tr key={c.id} className="clickable" onClick={() => nav(`/contacts/${c.id}`)}>
               <td>{c.name}</td><td>{c.companyName}</td>
-              <td>{c.identities.map((i) => <span key={i.id} className="chip">{IDENTITY_LABELS[i.type]}: {i.type === 'PHONE' ? fmtPhone(i.value) : i.value}</span>)}</td>
+              <td>{c.identities.map((i) => <span key={i.id} className="chip">{label(t, 'identity', i.type)}: {i.type === 'PHONE' ? fmtPhone(i.value) : i.value}</span>)}</td>
               <td>{c._count?.leads}</td>
             </tr>
           ))}
         </tbody>
       </table>
       {creating && (
-        <Modal title="Новый контакт" onClose={() => setCreating(false)}>
+        <Modal title={t('contacts.newTitle')} onClose={() => setCreating(false)}>
           <form onSubmit={(e) => { e.preventDefault(); create.mutate(); }}>
-            <Field label="Имя"><input value={name} onChange={(e) => setName(e.target.value)} required /></Field>
-            <Field label="Компания"><input value={company} onChange={(e) => setCompany(e.target.value)} /></Field>
-            <Field label="Телефон"><input value={phone} onChange={(e) => setPhone(e.target.value)} /></Field>
-            <Field label="Email"><input value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
+            <Field label={t('common.name')}><input value={name} onChange={(e) => setName(e.target.value)} required /></Field>
+            <Field label={t('common.company')}><input value={company} onChange={(e) => setCompany(e.target.value)} /></Field>
+            <Field label={t('common.phone')}><input value={phone} onChange={(e) => setPhone(e.target.value)} /></Field>
+            <Field label={t('common.email')}><input value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
             <ErrorText error={create.error} />
-            <div className="row" style={{ justifyContent: 'flex-end' }}><button type="button" onClick={() => setCreating(false)}>Отмена</button><button className="primary" disabled={!phone && !email}>Создать</button></div>
+            <div className="row" style={{ justifyContent: 'flex-end' }}><button type="button" onClick={() => setCreating(false)}>{t('common.cancel')}</button><button className="primary" disabled={!phone && !email}>{t('common.create')}</button></div>
           </form>
         </Modal>
       )}

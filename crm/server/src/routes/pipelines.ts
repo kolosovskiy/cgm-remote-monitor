@@ -8,7 +8,7 @@ export async function pipelineRoutes(app: FastifyInstance) {
     prisma.pipeline.findMany({ include: { stages: { orderBy: { position: 'asc' } } }, orderBy: { position: 'asc' } }),
   );
 
-  app.post('/api/pipelines', { preHandler: app.requireAdmin }, async (req) => {
+  app.post('/api/pipelines', { preHandler: app.requirePerm('settings.manage') }, async (req) => {
     const body = z.object({ name: z.string().min(1), isDefault: z.boolean().optional(), stages: z.array(z.object({ name: z.string().min(1), color: z.string().optional() })).min(1).optional() }).parse(req.body);
     const count = await prisma.pipeline.count();
     if (body.isDefault) await prisma.pipeline.updateMany({ data: { isDefault: false } });
@@ -24,14 +24,14 @@ export async function pipelineRoutes(app: FastifyInstance) {
     });
   });
 
-  app.patch('/api/pipelines/:id', { preHandler: app.requireAdmin }, async (req) => {
+  app.patch('/api/pipelines/:id', { preHandler: app.requirePerm('settings.manage') }, async (req) => {
     const { id } = req.params as { id: string };
     const body = z.object({ name: z.string().min(1).optional(), isDefault: z.boolean().optional(), position: z.number().optional() }).parse(req.body);
     if (body.isDefault) await prisma.pipeline.updateMany({ data: { isDefault: false } });
     return prisma.pipeline.update({ where: { id }, data: body, include: { stages: { orderBy: { position: 'asc' } } } });
   });
 
-  app.delete('/api/pipelines/:id', { preHandler: app.requireAdmin }, async (req) => {
+  app.delete('/api/pipelines/:id', { preHandler: app.requirePerm('settings.manage') }, async (req) => {
     const { id } = req.params as { id: string };
     const leads = await prisma.lead.count({ where: { pipelineId: id } });
     if (leads > 0) throw badRequest(`В воронке ${leads} лидов, сначала перенесите их`);
@@ -39,27 +39,27 @@ export async function pipelineRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
-  app.post('/api/pipelines/:id/stages', { preHandler: app.requireAdmin }, async (req) => {
+  app.post('/api/pipelines/:id/stages', { preHandler: app.requirePerm('settings.manage') }, async (req) => {
     const { id } = req.params as { id: string };
     const body = z.object({ name: z.string().min(1), color: z.string().optional(), isWon: z.boolean().optional(), isLost: z.boolean().optional() }).parse(req.body);
     const count = await prisma.stage.count({ where: { pipelineId: id } });
     return prisma.stage.create({ data: { ...body, pipelineId: id, position: count } });
   });
 
-  app.patch('/api/stages/:id', { preHandler: app.requireAdmin }, async (req) => {
+  app.patch('/api/stages/:id', { preHandler: app.requirePerm('settings.manage') }, async (req) => {
     const { id } = req.params as { id: string };
     const body = z.object({ name: z.string().min(1).optional(), color: z.string().optional(), isWon: z.boolean().optional(), isLost: z.boolean().optional(), position: z.number().optional() }).parse(req.body);
     return prisma.stage.update({ where: { id }, data: body });
   });
 
-  app.put('/api/pipelines/:id/stages/order', { preHandler: app.requireAdmin }, async (req) => {
+  app.put('/api/pipelines/:id/stages/order', { preHandler: app.requirePerm('settings.manage') }, async (req) => {
     const { id } = req.params as { id: string };
     const { stageIds } = z.object({ stageIds: z.array(z.string()) }).parse(req.body);
     await prisma.$transaction(stageIds.map((sid, i) => prisma.stage.update({ where: { id: sid, pipelineId: id }, data: { position: i } })));
     return prisma.stage.findMany({ where: { pipelineId: id }, orderBy: { position: 'asc' } });
   });
 
-  app.delete('/api/stages/:id', { preHandler: app.requireAdmin }, async (req) => {
+  app.delete('/api/stages/:id', { preHandler: app.requirePerm('settings.manage') }, async (req) => {
     const { id } = req.params as { id: string };
     const leads = await prisma.lead.count({ where: { stageId: id } });
     if (leads > 0) throw badRequest(`На этапе ${leads} лидов, сначала перенесите их`);

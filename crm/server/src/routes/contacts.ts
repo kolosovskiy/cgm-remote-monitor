@@ -59,7 +59,7 @@ export async function contactRoutes(app: FastifyInstance) {
   });
 
   /** Объединение дублей: все данные second переносятся в first, second удаляется. */
-  app.post('/api/contacts/:id/merge', async (req) => {
+  app.post('/api/contacts/:id/merge', { preHandler: app.requirePerm('contacts.merge') }, async (req) => {
     const { id } = req.params as { id: string };
     const { otherId } = z.object({ otherId: z.string() }).parse(req.body);
     if (id === otherId) throw badRequest('Нельзя объединить контакт с самим собой');

@@ -39,7 +39,7 @@ export const telegramChannel: ChannelAdapter = {
       return { ok: true };
     });
 
-    app.post('/webhooks/telegram/setup', { preHandler: app.requireAdmin }, async () => {
+    app.post('/webhooks/telegram/setup', { preHandler: app.requirePerm('integrations.manage') }, async () => {
       const res = await fetch(api('setWebhook'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },

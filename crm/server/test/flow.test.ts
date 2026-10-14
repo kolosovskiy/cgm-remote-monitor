@@ -100,7 +100,7 @@ describe('Binotel', () => {
     expect(call.userId).toBeTruthy();
     expect(call.leadId).toBeTruthy();
     const task = await prisma.task.findFirst();
-    expect(task?.title).toBe('Перезвонить Без имени');
+    expect(task?.title).toBe('Перезвонить Без імені');
     expect(task?.leadId).toBe(call.leadId);
   });
 

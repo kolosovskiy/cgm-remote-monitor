@@ -45,7 +45,8 @@ export async function api<T = unknown>(path: string, opts: { method?: string; bo
 }
 
 // Типы ответов API (подмножество, достаточное для интерфейса)
-export type User = { id: string; email: string; name: string; role: 'ADMIN' | 'MANAGER'; binotelInternal?: string | null; isActive?: boolean };
+export type Role = 'ADMIN' | 'DEVELOPER' | 'MANAGER' | 'OPERATOR';
+export type User = { id: string; email: string; name: string; role: Role; locale?: 'uk' | 'sk' | 'ru'; binotelInternal?: string | null; isActive?: boolean; permissions?: string[] };
 export type Identity = { id: string; type: string; value: string; label?: string | null };
 export type Contact = { id: string; name: string; companyName?: string | null; customFields: Record<string, unknown>; identities: Identity[]; _count?: { leads: number } };
 export type Stage = { id: string; pipelineId: string; name: string; position: number; color: string; isWon: boolean; isLost: boolean };

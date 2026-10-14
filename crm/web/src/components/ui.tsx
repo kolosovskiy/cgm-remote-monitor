@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { CHANNEL_LABELS, fmtPhone, IDENTITY_LABELS } from '../i18n';
+import { fmtPhone, label, useT } from '../i18n';
 import type { FieldDef, Identity } from '../api';
 
 export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
@@ -28,15 +28,17 @@ export function Field({ label, children }: { label: string; children: ReactNode 
 }
 
 export function ChannelChip({ channel }: { channel: string }) {
-  return <span className={`chip ch-${channel}`}>{CHANNEL_LABELS[channel] ?? channel}</span>;
+  const { t } = useT();
+  return <span className={`chip ch-${channel}`}>{label(t, 'channel', channel)}</span>;
 }
 
 export function IdentityLine({ i }: { i: Identity }) {
+  const { t } = useT();
   const v = i.type === 'PHONE' || i.type === 'WHATSAPP' ? fmtPhone(i.value) : i.value;
   const href = i.type === 'PHONE' ? `tel:+${i.value}` : i.type === 'EMAIL' ? `mailto:${i.value}` : undefined;
   return (
     <div className="row small">
-      <span className="muted" style={{ width: 80 }}>{IDENTITY_LABELS[i.type] ?? i.type}</span>
+      <span className="muted" style={{ width: 80 }}>{label(t, 'identity', i.type)}</span>
       {href ? <a href={href}>{v}</a> : <span>{v}</span>}
       {i.label && <span className="muted">{i.label}</span>}
     </div>
@@ -56,9 +58,7 @@ export function CustomFields({ defs, value, onChange }: { defs: FieldDef[]; valu
             {d.type === 'SELECT' ? (
               <select value={String(v ?? '')} onChange={(e) => set(d.key, e.target.value)}>
                 <option value="">—</option>
-                {d.options.map((o) => (
-                  <option key={o} value={o}>{o}</option>
-                ))}
+                {d.options.map((o) => <option key={o} value={o}>{o}</option>)}
               </select>
             ) : d.type === 'BOOL' ? (
               <input type="checkbox" style={{ width: 'auto' }} checked={!!v} onChange={(e) => set(d.key, e.target.checked)} />
