@@ -1,0 +1,12 @@
+{
+  "name": "crm",
+  "private": true,
+  "scripts": {
+    "install:all": "npm --prefix server install --legacy-peer-deps && npm --prefix web install --legacy-peer-deps",
+    "dev:server": "npm --prefix server run dev",
+    "dev:web": "npm --prefix web run dev",
+    "build": "npm --prefix server run build && npm --prefix web run build",
+    "test": "npm --prefix server test",
+    "typecheck": "npm --prefix server run typecheck && npm --prefix web run typecheck"
+  }
+}

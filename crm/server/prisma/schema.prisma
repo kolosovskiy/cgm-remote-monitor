@@ -1,0 +1,336 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+}
+
+enum Channel {
+  WEBSITE
+  EMAIL
+  PHONE
+  TELEGRAM
+  VIBER
+  WHATSAPP
+  FACEBOOK
+  INSTAGRAM
+  MANUAL
+}
+
+enum IdentityType {
+  PHONE
+  EMAIL
+  TELEGRAM
+  VIBER
+  WHATSAPP
+  FACEBOOK
+  INSTAGRAM
+}
+
+enum LeadStatus {
+  OPEN
+  WON
+  LOST
+}
+
+enum Direction {
+  IN
+  OUT
+}
+
+enum MessageStatus {
+  PENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  RECEIVED
+}
+
+enum CallStatus {
+  ANSWERED
+  MISSED
+  BUSY
+  FAILED
+}
+
+enum FieldEntity {
+  LEAD
+  CONTACT
+}
+
+enum FieldType {
+  TEXT
+  NUMBER
+  DATE
+  SELECT
+  BOOL
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         UserRole @default(MANAGER)
+  /// Внутренний номер в Binotel, чтобы привязывать звонки к сотруднику
+  binotelInternal String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  leads    Lead[]    @relation("LeadOwner")
+  tasks    Task[]
+  notes    Note[]
+  messages Message[]
+  calls    Call[]
+}
+
+model Contact {
+  id           String   @id @default(cuid())
+  name         String
+  companyName  String?
+  customFields Json     @default("{}")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  identities    ContactIdentity[]
+  leads         Lead[]
+  conversations Conversation[]
+  calls         Call[]
+  tasks         Task[]
+  notes         Note[]
+}
+
+/// Один контакт может иметь много идентификаторов: телефон, email, telegram id и т.д.
+/// По паре (type, value) входящее событие из любого канала находит контакт.
+model ContactIdentity {
+  id        String       @id @default(cuid())
+  contactId String
+  contact   Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  type      IdentityType
+  value     String
+  label     String?
+  createdAt DateTime     @default(now())
+
+  @@unique([type, value])
+  @@index([contactId])
+}
+
+model Pipeline {
+  id        String  @id @default(cuid())
+  name      String
+  position  Int     @default(0)
+  isDefault Boolean @default(false)
+  stages    Stage[]
+  leads     Lead[]
+}
+
+model Stage {
+  id         String   @id @default(cuid())
+  pipelineId String
+  pipeline   Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  name       String
+  position   Int      @default(0)
+  color      String   @default("#6b7280")
+  isWon      Boolean  @default(false)
+  isLost     Boolean  @default(false)
+  leads      Lead[]
+
+  @@index([pipelineId])
+}
+
+model Lead {
+  id           String     @id @default(cuid())
+  title        String
+  contactId    String
+  contact      Contact    @relation(fields: [contactId], references: [id])
+  pipelineId   String
+  pipeline     Pipeline   @relation(fields: [pipelineId], references: [id])
+  stageId      String
+  stage        Stage      @relation(fields: [stageId], references: [id])
+  ownerId      String?
+  owner        User?      @relation("LeadOwner", fields: [ownerId], references: [id])
+  source       Channel    @default(MANUAL)
+  /// Произвольная метка источника: utm, название формы, страница
+  sourceDetail String?
+  amount       Decimal?   @db.Decimal(14, 2)
+  currency     String     @default("UAH")
+  status       LeadStatus @default(OPEN)
+  customFields Json       @default("{}")
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  closedAt     DateTime?
+
+  conversations Conversation[]
+  calls         Call[]
+  tasks         Task[]
+  notes         Note[]
+  stageHistory  StageHistory[]
+
+  @@index([contactId])
+  @@index([pipelineId, stageId])
+  @@index([ownerId])
+}
+
+model StageHistory {
+  id        String   @id @default(cuid())
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  fromStage String?
+  toStage   String
+  userId    String?
+  createdAt DateTime @default(now())
+
+  @@index([leadId])
+}
+
+/// Диалог в одном канале с одним контактом (например, чат в Telegram или email-переписка).
+model Conversation {
+  id            String    @id @default(cuid())
+  contactId     String
+  contact       Contact   @relation(fields: [contactId], references: [id])
+  leadId        String?
+  lead          Lead?     @relation(fields: [leadId], references: [id])
+  channel       Channel
+  /// Внешний идентификатор чата: chat_id в Telegram, PSID в Messenger, адрес в email
+  externalId    String
+  subject       String?
+  lastMessageAt DateTime  @default(now())
+  unreadCount   Int       @default(0)
+  messages      Message[]
+
+  @@unique([channel, externalId])
+  @@index([contactId])
+  @@index([leadId])
+}
+
+model Message {
+  id             String        @id @default(cuid())
+  conversationId String
+  conversation   Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  direction      Direction
+  channel        Channel
+  externalId     String?
+  text           String
+  attachments    Json          @default("[]")
+  status         MessageStatus @default(RECEIVED)
+  error          String?
+  authorId       String?
+  author         User?         @relation(fields: [authorId], references: [id])
+  createdAt      DateTime      @default(now())
+
+  @@index([conversationId, createdAt])
+  @@unique([channel, externalId])
+}
+
+model Call {
+  id           String     @id @default(cuid())
+  contactId    String?
+  contact      Contact?   @relation(fields: [contactId], references: [id])
+  leadId       String?
+  lead         Lead?      @relation(fields: [leadId], references: [id])
+  userId       String?
+  user         User?      @relation(fields: [userId], references: [id])
+  direction    Direction
+  phone        String
+  internal     String?
+  status       CallStatus
+  durationSec  Int        @default(0)
+  waitSec      Int        @default(0)
+  recordingUrl String?
+  externalId   String     @unique
+  startedAt    DateTime
+  createdAt    DateTime   @default(now())
+
+  @@index([contactId])
+  @@index([leadId])
+}
+
+model Task {
+  id         String    @id @default(cuid())
+  title      String
+  leadId     String?
+  lead       Lead?     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  contactId  String?
+  contact    Contact?  @relation(fields: [contactId], references: [id])
+  assigneeId String?
+  assignee   User?     @relation(fields: [assigneeId], references: [id])
+  dueAt      DateTime?
+  doneAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([assigneeId, doneAt])
+  @@index([leadId])
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  text      String
+  leadId    String?
+  lead      Lead?    @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id])
+  authorId  String?
+  author    User?    @relation(fields: [authorId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@index([leadId])
+}
+
+/// Настраиваемые поля для лидов и контактов. Значения хранятся в customFields (JSON).
+model FieldDefinition {
+  id       String      @id @default(cuid())
+  entity   FieldEntity
+  key      String
+  label    String
+  type     FieldType
+  options  Json        @default("[]")
+  required Boolean     @default(false)
+  position Int         @default(0)
+
+  @@unique([entity, key])
+}
+
+/// Правило автоматизации: событие -> условия -> действия. См. src/automation/engine.ts
+model Automation {
+  id         String   @id @default(cuid())
+  name       String
+  trigger    String
+  conditions Json     @default("[]")
+  actions    Json     @default("[]")
+  enabled    Boolean  @default(true)
+  position   Int      @default(0)
+  createdAt  DateTime @default(now())
+}
+
+model MessageTemplate {
+  id      String  @id @default(cuid())
+  name    String
+  subject String?
+  body    String
+  channel Channel?
+}
+
+/// Сырые входящие вебхуки. Нужны для отладки интеграций и повторной обработки.
+model WebhookLog {
+  id          String    @id @default(cuid())
+  channel     String
+  payload     Json
+  error       String?
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([channel, createdAt])
+}
+
+model Setting {
+  key   String @id
+  value Json
+}
